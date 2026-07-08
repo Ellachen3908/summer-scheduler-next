@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,42 +9,22 @@ function safeError(message: string | undefined, fallback: string) {
 }
 
 export async function sendParentOtp(formData: FormData) {
-  const phone = String(formData.get("phone") || "").trim();
+  const email = String(formData.get("email") || "").trim();
   const supabase = await createClient();
+  const origin = headers().get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "";
 
-  const { error } = await supabase.auth.signInWithOtp({ phone });
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback?role=parent`
+    }
+  });
 
   if (error) {
-    redirect(`/login?error=${safeError(error.message, "Failed to send verification code")}`);
+    redirect(`/login?error=${safeError(error.message, "Failed to send login email")}`);
   }
 
-  redirect(`/login?phone=${encodeURIComponent(phone)}&sent=1`);
-}
-
-export async function verifyParentOtp(formData: FormData) {
-  const phone = String(formData.get("phone") || "").trim();
-  const token = String(formData.get("token") || "").trim();
-  const supabase = await createClient();
-
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone,
-    token,
-    type: "sms"
-  });
-
-  if (error || !data.user) {
-    redirect(`/login?phone=${encodeURIComponent(phone)}&error=${safeError(error?.message, "Invalid verification code")}`);
-  }
-
-  await supabase.from("profiles").upsert({
-    id: data.user.id,
-    role: "parent",
-    phone,
-    full_name: phone,
-    timezone: "Asia/Shanghai"
-  });
-
-  redirect("/parent");
+  redirect(`/login?sent=1&email=${encodeURIComponent(email)}`);
 }
 
 export async function teacherLogin(formData: FormData) {
@@ -51,10 +32,7 @@ export async function teacherLogin(formData: FormData) {
   const password = String(formData.get("password") || "");
   const supabase = await createClient();
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error || !data.user) {
     redirect(`/login?tab=teacher&error=${safeError(error?.message, "Login failed")}`);
