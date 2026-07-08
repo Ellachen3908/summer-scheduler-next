@@ -3,24 +3,39 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-const SITE_URL = "https://summer-scheduler-next-cm4k-one.vercel.app";
-
-export async function sendParentOtp(formData: FormData) {
+export async function parentLogin(formData: FormData) {
   const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithOtp({
+  let { data, error } = await supabase.auth.signInWithPassword({
     email,
-    options: {
-      emailRedirectTo: `${SITE_URL}/auth/callback?role=parent`
-    }
+    password
   });
 
-  if (error) {
-    redirect("/login?error=email_send_failed");
+  if (error || !data.user) {
+    const signUpResult = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    data = signUpResult.data;
+    error = signUpResult.error;
   }
 
-  redirect(`/login?sent=1&email=${encodeURIComponent(email)}`);
+  if (error || !data.user) {
+    redirect("/login?error=parent_login_failed");
+  }
+
+  await supabase.from("profiles").upsert({
+    id: data.user.id,
+    role: "parent",
+    email,
+    full_name: email.split("@")[0],
+    timezone: "Asia/Shanghai"
+  });
+
+  redirect("/parent");
 }
 
 export async function teacherLogin(formData: FormData) {
