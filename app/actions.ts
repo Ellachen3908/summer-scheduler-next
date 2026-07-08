@@ -17,7 +17,7 @@ export async function sendParentOtp(formData: FormData) {
   });
 
   if (error) {
-    redirect("/login?error=send_failed");
+    redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
   redirect(`/login?sent=1&email=${encodeURIComponent(email)}`);
@@ -34,7 +34,7 @@ export async function teacherLogin(formData: FormData) {
   });
 
   if (error || !data.user) {
-    redirect("/login?tab=teacher&error=login_failed");
+    redirect(`/login?tab=teacher&error=${encodeURIComponent(error?.message || "Login failed")}`);
   }
 
   await supabase.from("profiles").upsert({
