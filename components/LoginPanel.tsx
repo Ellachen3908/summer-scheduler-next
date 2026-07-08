@@ -1,13 +1,13 @@
-import { sendParentOtp, teacherLogin, verifyParentOtp } from "@/app/actions";
+import { sendParentOtp, teacherLogin } from "@/app/actions";
 
 export function LoginPanel({
   sent,
-  phone,
+  email,
   tab,
   error
 }: {
   sent?: string;
-  phone?: string;
+  email?: string;
   tab?: string;
   error?: string;
 }) {
@@ -27,16 +27,17 @@ export function LoginPanel({
             <h2>家长登录</h2>
             {!sent ? (
               <form action={sendParentOtp} className="stack">
-                <label>手机号<input name="phone" placeholder="+8613800000000" defaultValue={phone} required /></label>
-                <button className="primary">发送验证码</button>
-                <p className="muted small">后期可在这里接微信授权登录。</p>
+                <label>邮箱<input name="email" type="email" placeholder="parent@example.com" defaultValue={email} required /></label>
+                <button className="primary">发送登录链接</button>
+                <p className="muted small">家长会收到一封邮件，点击邮件里的链接即可登录。</p>
               </form>
             ) : (
-              <form action={verifyParentOtp} className="stack">
-                <input type="hidden" name="phone" value={phone} />
-                <label>验证码<input name="token" inputMode="numeric" required /></label>
-                <button className="primary">登录家长端</button>
-              </form>
+              <div className="stack">
+                <p className="muted">登录链接已发送到：</p>
+                <strong>{email}</strong>
+                <p className="muted small">请打开邮箱，点击登录链接。</p>
+                <a className="button" href="/login">重新发送</a>
+              </div>
             )}
           </div>
 
