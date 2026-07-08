@@ -1,8 +1,6 @@
-import { sendParentOtp, teacherLogin } from "@/app/actions";
+import { parentLogin, teacherLogin } from "@/app/actions";
 
 export function LoginPanel({
-  sent,
-  email,
   tab,
   error
 }: {
@@ -25,20 +23,12 @@ export function LoginPanel({
         <div className="login-grid">
           <div className={`login-box ${tab !== "teacher" ? "active" : ""}`}>
             <h2>家长登录</h2>
-            {!sent ? (
-              <form action={sendParentOtp} className="stack">
-                <label>邮箱<input name="email" type="email" placeholder="parent@example.com" defaultValue={email} required /></label>
-                <button className="primary">发送登录链接</button>
-                <p className="muted small">家长会收到一封邮件，点击邮件里的链接即可登录。</p>
-              </form>
-            ) : (
-              <div className="stack">
-                <p className="muted">登录链接已发送到：</p>
-                <strong>{email}</strong>
-                <p className="muted small">请打开邮箱，点击登录链接。</p>
-                <a className="button" href="/login">重新发送</a>
-              </div>
-            )}
+            <form action={parentLogin} className="stack">
+              <label>邮箱<input name="email" type="email" placeholder="parent@example.com" required /></label>
+              <label>密码<input name="password" type="password" required /></label>
+              <button className="primary">登录 / 注册家长账号</button>
+              <p className="muted small">第一次使用会自动创建家长账号。请记住邮箱和密码。</p>
+            </form>
           </div>
 
           <div className={`login-box ${tab === "teacher" ? "active" : ""}`}>
