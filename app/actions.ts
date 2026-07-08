@@ -3,38 +3,43 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export async function parentLogin(formData: FormData) {
-  const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "");
+async function ensureParentProfile(userId: string, email: string) {
   const supabase = await createClient();
 
-  let { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  if (error || !data.user) {
-    const signUpResult = await supabase.auth.signUp({
-      email,
-      password
-    });
-
-    data = signUpResult.data;
-    error = signUpResult.error;
-  }
-
-  if (error || !data.user) {
-    redirect("/login?error=parent_login_failed");
-  }
-
   await supabase.from("profiles").upsert({
-    id: data.user.id,
+    id: userId,
     role: "parent",
     email,
     full_name: email.split("@")[0],
     timezone: "Asia/Shanghai"
   });
+}
 
+export async function parentLogin(formData: FormData) {
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  const supabase = await createClient();
+
+  const loginResult = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (loginResult.data.user) {
+    await ensureParentProfile(loginResult.data.user.id, email);
+    redirect("/parent");
+  }
+
+  const signUpResult = await supabase.auth.signUp({
+    email,
+    password
+  });
+
+  if (!signUpResult.data.user || signUpResult.error) {
+    redirect("/login?error=parent_login_failed");
+  }
+
+  await ensureParentProfile(signUpResult.data.user.id, email);
   redirect("/parent");
 }
 
