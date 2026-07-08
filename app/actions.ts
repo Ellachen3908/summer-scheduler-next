@@ -4,10 +4,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-function safeError(message: string | undefined, fallback: string) {
-  return encodeURIComponent(message || fallback);
-}
-
 export async function sendParentOtp(formData: FormData) {
   const email = String(formData.get("email") || "").trim();
   const supabase = await createClient();
@@ -21,7 +17,7 @@ export async function sendParentOtp(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/login?error=${safeError(error.message, "Failed to send login email")}`);
+    redirect("/login?error=send_failed");
   }
 
   redirect(`/login?sent=1&email=${encodeURIComponent(email)}`);
@@ -32,10 +28,13 @@ export async function teacherLogin(formData: FormData) {
   const password = String(formData.get("password") || "");
   const supabase = await createClient();
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
 
   if (error || !data.user) {
-    redirect(`/login?tab=teacher&error=${safeError(error?.message, "Login failed")}`);
+    redirect("/login?tab=teacher&error=login_failed");
   }
 
   await supabase.from("profiles").upsert({
