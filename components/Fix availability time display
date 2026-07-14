@@ -6,6 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import { buildWeeks, slotTimes, slotToUtc } from "@/lib/time";
 import type { AvailabilitySlot, OwnerType } from "@/lib/types";
 
+function normalizeSlotTime(value: string) {
+  return new Date(value).toISOString();
+}
+
 export function AvailabilityPicker({
   ownerType,
   ownerId,
@@ -17,7 +21,9 @@ export function AvailabilityPicker({
 }) {
   const weeks = useMemo(() => buildWeeks(), []);
   const [weekIndex, setWeekIndex] = useState(0);
-  const [selected, setSelected] = useState(() => new Set(initialSlots.map(slot => slot.slot_start)));
+  const [selected, setSelected] = useState(
+    () => new Set(initialSlots.map(slot => normalizeSlotTime(slot.slot_start)))
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -44,6 +50,7 @@ export function AvailabilityPicker({
         const isWeekend = dayIndex >= 5;
         if (scope === "weekday" && isWeekend) return;
         if (scope === "weekend" && !isWeekend) return;
+
         slotTimes.forEach(time => {
           const { start } = slotToUtc(day.iso, time);
           if (value) next.add(start);
@@ -57,24 +64,45 @@ export function AvailabilityPicker({
   async function save() {
     setSaving(true);
     setMessage("");
+
     const supabase = createClient();
+
     const rows = Array.from(selected).map(start => ({
       owner_type: ownerType,
       owner_id: ownerId,
       slot_start: start,
       slot_end: new Date(new Date(start).getTime() + 30 * 60 * 1000).toISOString()
     }));
-    await supabase.from("availability_slots").delete().eq("owner_type", ownerType).eq("owner_id", ownerId);
-    const { error } = rows.length ? await supabase.from("availability_slots").insert(rows) : { error: null };
+
+    const { error: deleteError } = await supabase
+      .from("availability_slots")
+      .delete()
+      .eq("owner_type", ownerType)
+      .eq("owner_id", ownerId);
+
+    if (deleteError) {
+      setSaving(false);
+      setMessage(deleteError.message);
+      return;
+    }
+
+    const { error: insertError } = rows.length
+      ? await supabase.from("availability_slots").insert(rows)
+      : { error: null };
+
     setSaving(false);
-    setMessage(error ? error.message : "时间已保存");
+    setMessage(insertError ? insertError.message : "时间已保存");
   }
 
   return (
     <section className="panel">
       <div className="weekbar">
         {weeks.map(week => (
-          <button key={week.index} className={week.index === weekIndex ? "active" : ""} onClick={() => setWeekIndex(week.index)}>
+          <button
+            key={week.index}
+            className={week.index === weekIndex ? "active" : ""}
+            onClick={() => setWeekIndex(week.index)}
+          >
             <span>{week.label}</span>
             <small>{week.range}</small>
           </button>
@@ -95,14 +123,20 @@ export function AvailabilityPicker({
       <div className="grid-scroll">
         <div className="schedule-grid">
           <div className="cell head">时间</div>
-          {activeWeek.days.map(day => <div className="cell head" key={day.iso}>{day.label}</div>)}
+          {activeWeek.days.map(day => (
+            <div className="cell head" key={day.iso}>{day.label}</div>
+          ))}
+
           {slotTimes.flatMap(time => [
             <div className="cell time" key={`time-${time}`}>{time}</div>,
             ...activeWeek.days.map(day => {
               const active = hasSlot(day.iso, time);
               return (
                 <div className="cell" key={`${day.iso}-${time}`}>
-                  <button className={`slot ${active ? "selected" : ""}`} onClick={() => toggle(day.iso, time)}>
+                  <button
+                    className={`slot ${active ? "selected" : ""}`}
+                    onClick={() => toggle(day.iso, time)}
+                  >
                     {active ? "可用" : ""}
                   </button>
                 </div>
