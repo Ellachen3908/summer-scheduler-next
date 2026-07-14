@@ -13,13 +13,17 @@ async function getCurrentParent() {
     redirect("/login");
   }
 
-  await supabase.from("profiles").upsert({
+  const { error: profileError } = await supabase.from("profiles").upsert({
     id: user.id,
     role: "parent",
     email: user.email,
     full_name: user.email?.split("@")[0] || "Parent",
     timezone: "Asia/Shanghai"
   });
+
+  if (profileError) {
+    redirect(`/parent?error=${encodeURIComponent(profileError.message)}`);
+  }
 
   return { supabase, user };
 }
@@ -32,7 +36,7 @@ export async function addStudent(formData: FormData) {
   const notes = String(formData.get("notes") || "").trim();
 
   if (!fullName) {
-    redirect("/parent");
+    redirect("/parent?error=请填写孩子姓名");
   }
 
   const { error } = await supabase.from("students").insert({
@@ -46,7 +50,7 @@ export async function addStudent(formData: FormData) {
     redirect(`/parent?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/parent");
+  redirect("/parent?saved=1");
 }
 
 export async function updateStudent(formData: FormData) {
@@ -58,7 +62,7 @@ export async function updateStudent(formData: FormData) {
   const notes = String(formData.get("notes") || "").trim();
 
   if (!id || !fullName) {
-    redirect("/parent");
+    redirect("/parent?error=缺少孩子信息");
   }
 
   const { error } = await supabase
@@ -74,5 +78,5 @@ export async function updateStudent(formData: FormData) {
     redirect(`/parent?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect(`/parent?student=${id}`);
+  redirect(`/parent?student=${id}&saved=1`);
 }
