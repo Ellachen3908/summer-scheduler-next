@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { AdminExport } from "@/components/AdminExport";
