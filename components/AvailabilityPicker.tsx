@@ -24,6 +24,31 @@ export function AvailabilityPicker({
   const [message, setMessage] = useState("");
 
   const activeWeek = weeks[weekIndex];
+  const isTeacher = ownerType === "teacher";
+
+  const text = isTeacher
+    ? {
+        allWeek: "Available All Week（整周可用）",
+        weekday: "Weekdays Available（周一到周五可用）",
+        weekend: "Weekend Available（周末可用）",
+        clear: "Clear This Week（清空本周）",
+        saving: "Saving（保存中）",
+        save: "Save Availability（保存时间）",
+        saved: "Availability Saved（时间已保存）",
+        time: "Time（时间）",
+        available: "Available（可用）"
+      }
+    : {
+        allWeek: "整周可用",
+        weekday: "周一到周五可用",
+        weekend: "周末可用",
+        clear: "清空本周",
+        saving: "保存中",
+        save: "保存时间",
+        saved: "时间已保存",
+        time: "时间",
+        available: "可用"
+      };
 
   function hasSlot(dateIso: string, time: string) {
     return selected.has(slotToUtc(dateIso, time).start);
@@ -34,11 +59,13 @@ export function AvailabilityPicker({
 
     setSelected(prev => {
       const next = new Set(prev);
+
       if (next.has(start)) {
         next.delete(start);
       } else {
         next.add(start);
       }
+
       return next;
     });
   }
@@ -86,13 +113,7 @@ export function AvailabilityPicker({
     });
 
     setSaving(false);
-
-    if (error) {
-      setMessage(error.message);
-      return;
-    }
-
-    setMessage("时间已保存");
+    setMessage(error ? error.message : text.saved);
   }
 
   return (
@@ -111,14 +132,13 @@ export function AvailabilityPicker({
       </div>
 
       <div className="toolbar">
-        <button onClick={() => fill("all", true)}>整周可用</button>
-        <button onClick={() => fill("weekday", true)}>周一到周五可用</button>
-        <button onClick={() => fill("weekend", true)}>周末可用</button>
-        <button onClick={() => fill("all", false)}>清空本周</button>
+        <button onClick={() => fill("all", true)}>{text.allWeek}</button>
+        <button onClick={() => fill("weekday", true)}>{text.weekday}</button>
+        <button onClick={() => fill("weekend", true)}>{text.weekend}</button>
+        <button onClick={() => fill("all", false)}>{text.clear}</button>
 
         <button className="primary" onClick={save} disabled={saving}>
-          <Save size={16} />
-          {saving ? "保存中" : "保存时间"}
+          <Save size={16} /> {saving ? text.saving : text.save}
         </button>
 
         {message && <span className="status-text">{message}</span>}
@@ -126,7 +146,7 @@ export function AvailabilityPicker({
 
       <div className="grid-scroll">
         <div className="schedule-grid">
-          <div className="cell head">时间</div>
+          <div className="cell head">{text.time}</div>
 
           {activeWeek.days.map(day => (
             <div className="cell head" key={day.iso}>
@@ -138,7 +158,6 @@ export function AvailabilityPicker({
             <div className="cell time" key={`time-${time}`}>
               {time}
             </div>,
-
             ...activeWeek.days.map(day => {
               const active = hasSlot(day.iso, time);
 
@@ -148,7 +167,7 @@ export function AvailabilityPicker({
                     className={`slot ${active ? "selected" : ""}`}
                     onClick={() => toggle(day.iso, time)}
                   >
-                    {active ? "可用" : ""}
+                    {active ? text.available : ""}
                   </button>
                 </div>
               );
