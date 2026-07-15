@@ -1,4 +1,4 @@
-# 暑期订课排课系统
+# 武博留学补课系统
 
 这是一个可上线的 Next.js + Supabase + Vercel 项目，不是 HTML 演示。
 
