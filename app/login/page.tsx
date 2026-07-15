@@ -1,16 +1,15 @@
-export const runtime = "edge";
 import { LoginPanel } from "@/components/LoginPanel";
+
+export const runtime = "edge";
 
 export default function LoginPage({
   searchParams
 }: {
-  searchParams: { sent?: string; email?: string; tab?: string; error?: string };
+  searchParams: { role?: string; error?: string };
 }) {
   return (
     <LoginPanel
-      sent={searchParams.sent}
-      email={searchParams.email}
-      tab={searchParams.tab}
+      role={searchParams.role}
       error={searchParams.error}
     />
   );
