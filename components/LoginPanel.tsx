@@ -34,8 +34,8 @@ export function LoginPanel({ role, error }: LoginPanelProps) {
   return (
     <main className="login-page">
       <section className="login-card single-login-card">
-        <p className="eyebrow">Summer Scheduler</p>
-        <h1>暑期订课排课系统</h1>
+<p className="eyebrow">武博留学</p>
+<h1>武博留学补课系统</h1>
         <p className="muted">
           家长、老师、管理员都在这里用邮箱和密码登录。先选择身份，再输入账号。
         </p>
