@@ -3,123 +3,139 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-function safeError(message: string | undefined, fallback: string) {
-  return encodeURIComponent(message || fallback);
+type LoginRole = "parent" | "teacher" | "admin";
+
+const messages = {
+  missingEmailPassword: "\u8bf7\u8f93\u5165\u90ae\u7bb1\u548c\u5bc6\u7801\u3002",
+  shortPassword: "\u5bc6\u7801\u81f3\u5c11\u9700\u8981 6 \u4f4d\u3002",
+  adminCannotAutoSignup:
+    "\u7ba1\u7406\u5458\u8d26\u53f7\u4e0d\u80fd\u81ea\u52a8\u6ce8\u518c\u3002\u8bf7\u5148\u7528\u8fd9\u4e2a\u90ae\u7bb1\u6ce8\u518c\u6210\u5bb6\u957f\u6216\u8001\u5e08\uff0c\u518d\u5230 Supabase \u628a profiles \u8868\u91cc\u7684 role \u6539\u6210 admin\u3002",
+  loginFailed:
+    "\u767b\u5f55\u6216\u6ce8\u518c\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u90ae\u7bb1\u548c\u5bc6\u7801\u3002",
+  notAdmin:
+    "\u8fd9\u4e2a\u90ae\u7bb1\u8fd8\u4e0d\u662f\u7ba1\u7406\u5458\u3002\u8bf7\u5230 Supabase \u7684 profiles \u8868\u91cc\uff0c\u628a\u8fd9\u4e2a\u7528\u6237\u7684 role \u6539\u6210 admin\u3002"
+};
+
+function readRole(formData: FormData): LoginRole {
+  const role = String(formData.get("role") || "parent");
+
+  if (role === "teacher" || role === "admin") {
+    return role;
+  }
+
+  return "parent";
+}
+
+function loginErrorPath(role: LoginRole, message: string) {
+  return `/login?role=${role}&error=${encodeURIComponent(message)}`;
+}
+
+function userNameFromEmail(email: string) {
+  return email.split("@")[0] || email;
 }
 
 async function ensureParentProfile(userId: string, email: string) {
   const supabase = await createClient();
 
-  await supabase.from("profiles").upsert({
+  const { error } = await supabase.from("profiles").upsert({
     id: userId,
     role: "parent",
     email,
-    full_name: email.split("@")[0],
+    full_name: userNameFromEmail(email),
     timezone: "Asia/Shanghai"
   });
-}
-
-export async function parentLogin(formData: FormData) {
-  const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "");
-  const supabase = await createClient();
-
-  let { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
 
   if (error) {
-    const signUpResult = await supabase.auth.signUp({
-      email,
-      password
-    });
-
-    if (signUpResult.error || !signUpResult.data.user) {
-      redirect(`/login?error=${safeError(signUpResult.error?.message, "家长登录失败")}`);
-    }
-
-    data = signUpResult.data;
-    error = null;
+    redirect(loginErrorPath("parent", error.message));
   }
-
-  if (!data.user) {
-    redirect(`/login?error=${safeError(error?.message, "家长登录失败")}`);
-  }
-
-  await ensureParentProfile(data.user.id, email);
-
-  redirect("/parent");
 }
 
-export async function teacherLogin(formData: FormData) {
-  const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "");
+async function ensureTeacherProfile(userId: string, email: string) {
   const supabase = await createClient();
 
-  let { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  if (error) {
-    const signUpResult = await supabase.auth.signUp({
-      email,
-      password
-    });
-
-    if (signUpResult.error || !signUpResult.data.user) {
-      redirect(`/login?tab=teacher&error=${safeError(signUpResult.error?.message, "老师登录失败")}`);
-    }
-
-    data = signUpResult.data;
-    error = null;
-  }
-
-  if (!data.user) {
-    redirect(`/login?tab=teacher&error=${safeError(error?.message, "老师登录失败")}`);
-  }
-
-  await supabase.from("profiles").upsert({
-    id: data.user.id,
+  const { error: profileError } = await supabase.from("profiles").upsert({
+    id: userId,
     role: "teacher",
     email,
-    full_name: email.split("@")[0],
+    full_name: userNameFromEmail(email),
     timezone: "Europe/London"
   });
 
-  await supabase.from("teacher_profiles").upsert({
-    user_id: data.user.id,
-    email,
-    full_name: email.split("@")[0],
-    timezone: "Europe/London"
-  }, { onConflict: "user_id" });
+  if (profileError) {
+    redirect(loginErrorPath("teacher", profileError.message));
+  }
 
-  redirect("/teacher");
+  const { error: teacherError } = await supabase.from("teacher_profiles").upsert(
+    {
+      user_id: userId,
+      email,
+      full_name: userNameFromEmail(email),
+      timezone: "Europe/London"
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (teacherError) {
+    redirect(loginErrorPath("teacher", teacherError.message));
+  }
 }
 
-export async function adminLogin(formData: FormData) {
-  const email = String(formData.get("email") || "").trim();
+export async function accountLogin(formData: FormData) {
+  const role = readRole(formData);
+  const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
   const supabase = await createClient();
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  if (!email || !password) {
+    redirect(loginErrorPath(role, messages.missingEmailPassword));
+  }
+
+  if (password.length < 6) {
+    redirect(loginErrorPath(role, messages.shortPassword));
+  }
+
+  const signInResult = await supabase.auth.signInWithPassword({
     email,
     password
   });
 
-  if (error || !data.user) {
-    redirect(`/login?tab=admin&error=${safeError(error?.message, "管理员登录失败")}`);
+  let user = signInResult.data.user;
+
+  if (signInResult.error || !user) {
+    if (role === "admin") {
+      redirect(loginErrorPath(role, messages.adminCannotAutoSignup));
+    }
+
+    const signUpResult = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    if (signUpResult.error || !signUpResult.data.user) {
+      redirect(loginErrorPath(role, signUpResult.error?.message || messages.loginFailed));
+    }
+
+    user = signUpResult.data.user;
   }
 
-  const { data: profile } = await supabase
+  if (role === "parent") {
+    await ensureParentProfile(user.id, email);
+    redirect("/parent");
+  }
+
+  if (role === "teacher") {
+    await ensureTeacherProfile(user.id, email);
+    redirect("/teacher");
+  }
+
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
-    .eq("id", data.user.id)
+    .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") {
-    redirect("/login?tab=admin&error=这个账号还不是管理员，请先在 Supabase 把 role 改成 admin");
+  if (profileError || profile?.role !== "admin") {
+    redirect(loginErrorPath("admin", messages.notAdmin));
   }
 
   redirect("/admin");
