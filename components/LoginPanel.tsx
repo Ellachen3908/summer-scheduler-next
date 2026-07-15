@@ -11,11 +11,11 @@ const roles = [
     label: "家长",
     help: "给孩子填写未来 8 周可补课时间。"
   },
-  {
-    value: "teacher",
-    label: "老师",
-    help: "英国老师填写自己的可上课时间。"
-  },
+{
+  value: "teacher",
+  label: "Teacher（老师）",
+  help: "UK teachers fill in their available teaching times.（英国老师填写自己的可上课时间。）"
+},
   {
     value: "admin",
     label: "管理员",
