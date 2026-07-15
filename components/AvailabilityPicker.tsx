@@ -18,93 +18,109 @@ export function AvailabilityPicker({
   const weeks = useMemo(() => buildWeeks(), []);
   const [weekIndex, setWeekIndex] = useState(0);
   const [selected, setSelected] = useState(
-    () => new Set(initialSlots.map(slot => slot.slot_start))
+    () => new Set(initialSlots.map((slot) => slot.slot_start))
   );
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
+  const isTutor = ownerType === "teacher";
   const activeWeek = weeks[weekIndex];
-  const isTeacher = ownerType === "teacher";
 
-  const text = isTeacher
+  const text = isTutor
     ? {
         allWeek: "Available All Week（整周可用）",
-        weekday: "Weekdays Available（周一到周五可用）",
+        weekdays: "Weekdays Available（周一到周五可用）",
         weekend: "Weekend Available（周末可用）",
         clear: "Clear This Week（清空本周）",
-        saving: "Saving（保存中）",
         save: "Save Availability（保存时间）",
+        saving: "Saving（保存中）",
         saved: "Availability Saved（时间已保存）",
         time: "Time（时间）",
         available: "Available（可用）"
       }
     : {
         allWeek: "整周可用",
-        weekday: "周一到周五可用",
+        weekdays: "周一到周五可用",
         weekend: "周末可用",
         clear: "清空本周",
-        saving: "保存中",
         save: "保存时间",
+        saving: "保存中",
         saved: "时间已保存",
         time: "时间",
         available: "可用"
       };
 
-  function hasSlot(dateIso: string, time: string) {
-    return selected.has(slotToUtc(dateIso, time).start);
+  function weekLabel(week: (typeof weeks)[number]) {
+    if (!isTutor) return week.label;
+    return `Week ${week.index + 1}（${week.label}）`;
   }
 
-  function toggle(dateIso: string, time: string) {
-    const { start } = slotToUtc(dateIso, time);
+  function dayLabel(day: (typeof activeWeek.days)[number], dayIndex: number) {
+    if (!isTutor) return day.label;
 
-    setSelected(prev => {
-      const next = new Set(prev);
+    const englishDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const datePart = day.label.replace(/^周[一二三四五六日]\s*/, "");
 
-      if (next.has(start)) {
-        next.delete(start);
+    return `${englishDays[dayIndex]} ${datePart}（${day.label}）`;
+  }
+
+  function slotKey(day: (typeof activeWeek.days)[number], time: string) {
+    return slotToUtc(day.date, time);
+  }
+
+  function toggleSlot(day: (typeof activeWeek.days)[number], time: string) {
+    const key = slotKey(day, time);
+
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(start);
+        next.add(key);
+      }
+      return next;
+    });
+
+    setMessage("");
+  }
+
+  function setWeekSlots(dayIndexes: number[], enabled: boolean) {
+    setSelected((current) => {
+      const next = new Set(current);
+
+      for (const dayIndex of dayIndexes) {
+        const day = activeWeek.days[dayIndex];
+
+        for (const time of slotTimes) {
+          const key = slotKey(day, time);
+          if (enabled) {
+            next.add(key);
+          } else {
+            next.delete(key);
+          }
+        }
       }
 
       return next;
     });
+
+    setMessage("");
   }
 
-  function fill(scope: "all" | "weekday" | "weekend", value: boolean) {
-    setSelected(prev => {
-      const next = new Set(prev);
-
-      activeWeek.days.forEach((day, dayIndex) => {
-        const isWeekend = dayIndex >= 5;
-
-        if (scope === "weekday" && isWeekend) return;
-        if (scope === "weekend" && !isWeekend) return;
-
-        slotTimes.forEach(time => {
-          const { start } = slotToUtc(day.iso, time);
-
-          if (value) {
-            next.add(start);
-          } else {
-            next.delete(start);
-          }
-        });
-      });
-
-      return next;
-    });
-  }
-
-  async function save() {
+  async function saveSlots() {
     setSaving(true);
     setMessage("");
 
     const supabase = createClient();
 
-    const slots = Array.from(selected).map(start => ({
-      slot_start: start,
-      slot_end: new Date(new Date(start).getTime() + 30 * 60 * 1000).toISOString()
-    }));
+    const slots = Array.from(selected).map((start) => {
+      const end = new Date(new Date(start).getTime() + 30 * 60 * 1000).toISOString();
+
+      return {
+        slot_start: start,
+        slot_end: end
+      };
+    });
 
     const { error } = await supabase.rpc("replace_availability_slots", {
       p_owner_type: ownerType,
@@ -112,68 +128,92 @@ export function AvailabilityPicker({
       p_slots: slots
     });
 
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setMessage(text.saved);
+    }
+
     setSaving(false);
-    setMessage(error ? error.message : text.saved);
   }
 
   return (
-    <section className="panel">
-      <div className="weekbar">
-        {weeks.map(week => (
+    <section className="panel scheduler">
+      <div className="week-tabs">
+        {weeks.map((week) => (
           <button
             key={week.index}
+            type="button"
             className={week.index === weekIndex ? "active" : ""}
             onClick={() => setWeekIndex(week.index)}
           >
-            <span>{week.label}</span>
-            <small>{week.range}</small>
+            <strong>{weekLabel(week)}</strong>
+            <span>{week.rangeLabel}</span>
           </button>
         ))}
       </div>
 
-      <div className="toolbar">
-        <button onClick={() => fill("all", true)}>{text.allWeek}</button>
-        <button onClick={() => fill("weekday", true)}>{text.weekday}</button>
-        <button onClick={() => fill("weekend", true)}>{text.weekend}</button>
-        <button onClick={() => fill("all", false)}>{text.clear}</button>
-
-        <button className="primary" onClick={save} disabled={saving}>
-          <Save size={16} /> {saving ? text.saving : text.save}
+      <div className="quick-actions">
+        <button type="button" onClick={() => setWeekSlots([0, 1, 2, 3, 4, 5, 6], true)}>
+          {text.allWeek}
         </button>
 
-        {message && <span className="status-text">{message}</span>}
+        <button type="button" onClick={() => setWeekSlots([0, 1, 2, 3, 4], true)}>
+          {text.weekdays}
+        </button>
+
+        <button type="button" onClick={() => setWeekSlots([5, 6], true)}>
+          {text.weekend}
+        </button>
+
+        <button type="button" onClick={() => setWeekSlots([0, 1, 2, 3, 4, 5, 6], false)}>
+          {text.clear}
+        </button>
+
+        <button type="button" className="primary inline" onClick={saveSlots} disabled={saving}>
+          <Save size={16} />
+          {saving ? text.saving : text.save}
+        </button>
+
+        {message ? <span className="success-text">{message}</span> : null}
       </div>
 
-      <div className="grid-scroll">
-        <div className="schedule-grid">
-          <div className="cell head">{text.time}</div>
+      <div className="schedule-scroll">
+        <table className="schedule-table">
+          <thead>
+            <tr>
+              <th>{text.time}</th>
+              {activeWeek.days.map((day, dayIndex) => (
+                <th key={day.date}>{dayLabel(day, dayIndex)}</th>
+              ))}
+            </tr>
+          </thead>
 
-          {activeWeek.days.map(day => (
-            <div className="cell head" key={day.iso}>
-              {day.label}
-            </div>
-          ))}
+          <tbody>
+            {slotTimes.map((time) => (
+              <tr key={time}>
+                <td>{time}</td>
 
-          {slotTimes.flatMap(time => [
-            <div className="cell time" key={`time-${time}`}>
-              {time}
-            </div>,
-            ...activeWeek.days.map(day => {
-              const active = hasSlot(day.iso, time);
+                {activeWeek.days.map((day) => {
+                  const key = slotKey(day, time);
+                  const checked = selected.has(key);
 
-              return (
-                <div className="cell" key={`${day.iso}-${time}`}>
-                  <button
-                    className={`slot ${active ? "selected" : ""}`}
-                    onClick={() => toggle(day.iso, time)}
-                  >
-                    {active ? text.available : ""}
-                  </button>
-                </div>
-              );
-            })
-          ])}
-        </div>
+                  return (
+                    <td key={`${day.date}-${time}`}>
+                      <button
+                        type="button"
+                        className={checked ? "slot selected" : "slot"}
+                        onClick={() => toggleSlot(day, time)}
+                      >
+                        {checked ? text.available : ""}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
