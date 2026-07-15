@@ -8,18 +8,18 @@ type LoginPanelProps = {
 const roles = [
   {
     value: "parent",
-    label: "家长",
-    help: "给孩子填写未来 8 周可补课时间。"
+    label: "Parent（家长）",
+    help: "Parents fill in children’s available make-up lesson times.（家长给孩子填写未来 8 周可补课时间。）"
   },
-{
-  value: "teacher",
-  label: "Teacher（老师）",
-  help: "UK teachers fill in their available teaching times.（英国老师填写自己的可上课时间。）"
-},
+  {
+    value: "teacher",
+    label: "Tutor（老师）",
+    help: "UK tutors fill in their available teaching times.（英国老师填写自己的可上课时间。）"
+  },
   {
     value: "admin",
-    label: "管理员",
-    help: "查看匹配结果、确认课程、导出 Excel。"
+    label: "Admin（管理员）",
+    help: "Admins view matches, confirm lessons, and export Excel.（管理员查看匹配结果、确认课程、导出 Excel。）"
   }
 ];
 
@@ -33,41 +33,40 @@ export function LoginPanel({ role, error }: LoginPanelProps) {
 
   return (
     <main className="login-page">
-      <section className="login-card single-login-card">
-<p className="eyebrow">武博留学</p>
-<h1>武博留学补课系统</h1>
+      <section className="login-card">
+        <p className="eyebrow">武博留学</p>
+        <h1>武博留学补课系统</h1>
         <p className="muted">
-          家长、老师、管理员都在这里用邮箱和密码登录。先选择身份，再输入账号。
+          Parents, tutors, and admins sign in here with email and password.
+          （家长、老师、管理员都在这里用邮箱和密码登录。）
         </p>
 
-        {error ? <div className="alert">{error}</div> : null}
+        {error ? <div className="error-banner">{error}</div> : null}
 
-        <form action={accountLogin} className="stack login-form">
+        <form action={accountLogin} className="login-form">
           <label>
-            邮箱
+            Email（邮箱）
             <input
               name="email"
               type="email"
-              autoComplete="email"
-              placeholder="请输入邮箱"
+              placeholder="Enter email（请输入邮箱）"
               required
             />
           </label>
 
           <label>
-            密码
+            Password（密码）
             <input
               name="password"
               type="password"
-              autoComplete="current-password"
-              placeholder="请输入密码"
+              placeholder="Enter password（请输入密码）"
               minLength={6}
               required
             />
           </label>
 
-          <fieldset className="role-picker">
-            <legend>登录身份</legend>
+          <fieldset className="role-options">
+            <legend>Login Role（登录身份）</legend>
 
             {roles.map((item) => (
               <label key={item.value} className="role-option">
@@ -75,24 +74,24 @@ export function LoginPanel({ role, error }: LoginPanelProps) {
                   type="radio"
                   name="role"
                   value={item.value}
-                  defaultChecked={defaultRole === item.value}
+                  defaultChecked={item.value === defaultRole}
                 />
-                <span>
-                  <strong>{item.label}</strong>
-                  <small>{item.help}</small>
-                </span>
+                <strong>{item.label}</strong>
+                <span>{item.help}</span>
               </label>
             ))}
           </fieldset>
 
           <button className="primary" type="submit">
-            登录 / 注册
+            Log In / Sign Up（登录 / 注册）
           </button>
-
-          <p className="muted small">
-            家长和老师第一次使用会自动创建账号。管理员账号需要先由你在 Supabase 后台授权。
-          </p>
         </form>
+
+        <p className="muted">
+          Parent and tutor accounts are created automatically on first use.
+          Admin accounts must be authorized in Supabase first.
+          （家长和老师第一次使用会自动创建账号。管理员账号需要先在 Supabase 后台授权。）
+        </p>
       </section>
     </main>
   );
